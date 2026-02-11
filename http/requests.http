@@ -1,0 +1,3 @@
+### Root endpoint
+GET http://localhost:8080/
+Accept: text/html
