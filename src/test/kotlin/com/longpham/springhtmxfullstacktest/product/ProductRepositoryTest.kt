@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
-import org.springframework.jdbc.core.simple.JdbcClient
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
@@ -23,20 +22,16 @@ class ProductRepositoryTest {
     companion object {
         @Container
         @ServiceConnection
+        @JvmStatic
         val postgres = PostgreSQLContainer("postgres:17")
     }
 
     @Autowired
     lateinit var productRepository: ProductRepository
 
-    @Autowired
-    lateinit var jdbcClient: JdbcClient
-
     @BeforeEach
     fun setUp() {
-        // Clean up tables before each test
-        jdbcClient.sql("DELETE FROM product_variants").update()
-        jdbcClient.sql("DELETE FROM products").update()
+        productRepository.deleteAllProducts()
     }
 
     @Test
@@ -76,8 +71,8 @@ class ProductRepositoryTest {
 
         // Insert variants
         val variants = listOf(
-            ProductVariant(id = 101L, productId = 1L, title = "Small", sku = "SKU-001", price = BigDecimal("19.99")),
-            ProductVariant(id = 102L, productId = 1L, title = "Large", sku = "SKU-002", price = BigDecimal("29.99"))
+            ProductVariant.create(id = 101L, productId = 1L, title = "Small", sku = "SKU-001", price = BigDecimal("19.99")),
+            ProductVariant.create(id = 102L, productId = 1L, title = "Large", sku = "SKU-002", price = BigDecimal("29.99"))
         )
         productRepository.replaceVariants(1L, variants)
 
@@ -102,7 +97,7 @@ class ProductRepositoryTest {
         )
 
         val variants = listOf(
-            ProductVariant(id = 101L, productId = 1L, title = "Default", sku = "SKU-001", price = BigDecimal("9.99"))
+            ProductVariant.create(id = 101L, productId = 1L, title = "Default", sku = "SKU-001", price = BigDecimal("9.99"))
         )
         productRepository.replaceVariants(1L, variants)
 
@@ -172,8 +167,8 @@ class ProductRepositoryTest {
     fun `upsertProductsFromExternal inserts new products`() {
         val now = OffsetDateTime.now()
         val products = listOf(
-            Product(id = 1L, title = "Product 1", handle = "product-1", productType = "Type A", updatedAt = now),
-            Product(id = 2L, title = "Product 2", handle = "product-2", productType = "Type B", updatedAt = now)
+            Product.create(id = 1L, title = "Product 1", handle = "product-1", productType = "Type A", updatedAt = now),
+            Product.create(id = 2L, title = "Product 2", handle = "product-2", productType = "Type B", updatedAt = now)
         )
 
         productRepository.upsertProductsFromExternal(products)
@@ -189,7 +184,7 @@ class ProductRepositoryTest {
 
         val later = now.plusHours(1)
         val updatedProducts = listOf(
-            Product(id = 1L, title = "Updated Title", handle = "product-1-updated", productType = "Type B", updatedAt = later)
+            Product.create(id = 1L, title = "Updated Title", handle = "product-1-updated", productType = "Type B", updatedAt = later)
         )
 
         productRepository.upsertProductsFromExternal(updatedProducts)
@@ -205,11 +200,11 @@ class ProductRepositoryTest {
     fun `upsertProductsFromExternal handles products with variants`() {
         val now = OffsetDateTime.now()
         val variants = listOf(
-            ProductVariant(id = 101L, productId = 1L, title = "Variant 1", sku = "SKU-1", price = BigDecimal("10.00")),
-            ProductVariant(id = 102L, productId = 1L, title = "Variant 2", sku = "SKU-2", price = BigDecimal("20.00"))
+            ProductVariant.create(id = 101L, productId = 1L, title = "Variant 1", sku = "SKU-1", price = BigDecimal("10.00")),
+            ProductVariant.create(id = 102L, productId = 1L, title = "Variant 2", sku = "SKU-2", price = BigDecimal("20.00"))
         )
         val products = listOf(
-            Product(id = 1L, title = "Product with Variants", handle = "product-1", productType = "Type A", updatedAt = now, variants = variants)
+            Product.create(id = 1L, title = "Product with Variants", handle = "product-1", productType = "Type A", updatedAt = now, variants = variants)
         )
 
         productRepository.upsertProductsFromExternal(products)
@@ -226,14 +221,14 @@ class ProductRepositoryTest {
 
         // Insert initial variants
         val initialVariants = listOf(
-            ProductVariant(id = 101L, productId = 1L, title = "Old Variant", sku = "OLD-SKU", price = BigDecimal("5.00"))
+            ProductVariant.create(id = 101L, productId = 1L, title = "Old Variant", sku = "OLD-SKU", price = BigDecimal("5.00"))
         )
         productRepository.replaceVariants(1L, initialVariants)
 
         // Replace with new variants
         val newVariants = listOf(
-            ProductVariant(id = 201L, productId = 1L, title = "New Variant 1", sku = "NEW-SKU-1", price = BigDecimal("15.00")),
-            ProductVariant(id = 202L, productId = 1L, title = "New Variant 2", sku = "NEW-SKU-2", price = BigDecimal("25.00"))
+            ProductVariant.create(id = 201L, productId = 1L, title = "New Variant 1", sku = "NEW-SKU-1", price = BigDecimal("15.00")),
+            ProductVariant.create(id = 202L, productId = 1L, title = "New Variant 2", sku = "NEW-SKU-2", price = BigDecimal("25.00"))
         )
         productRepository.replaceVariants(1L, newVariants)
 
@@ -266,7 +261,7 @@ class ProductRepositoryTest {
         productRepository.insertManualProduct(1L, "Test Product", "test-product", null, now)
 
         val variants = listOf(
-            ProductVariant(id = 101L, productId = 1L, title = "Default Variant", sku = null, price = null)
+            ProductVariant.create(id = 101L, productId = 1L, title = "Default Variant", sku = null, price = null)
         )
         productRepository.replaceVariants(1L, variants)
 

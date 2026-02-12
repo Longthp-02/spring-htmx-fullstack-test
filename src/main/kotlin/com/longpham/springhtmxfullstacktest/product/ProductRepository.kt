@@ -1,39 +1,37 @@
 package com.longpham.springhtmxfullstacktest.product
 
-import org.springframework.jdbc.core.simple.JdbcClient
+import org.jooq.DSLContext
+import org.jooq.Record
+import org.jooq.impl.DSL
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
-import java.math.BigDecimal
-import java.sql.ResultSet
 import java.time.OffsetDateTime
 
 @Repository
-class ProductRepository(private val jdbcClient: JdbcClient) {
+class ProductRepository(private val dslContext: DSLContext) {
 
-    private val productRowMapper: (ResultSet, Int) -> Product = { rs, _ ->
-        Product(
-            id = rs.getLong("id"),
-            title = rs.getString("title"),
-            handle = rs.getString("handle"),
-            productType = rs.getString("product_type"),
-            updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java)
-        )
-    }
+    private fun Record.toProduct(): Product = Product.create(
+        id = get(ProductTable.ID)!!,
+        title = get(ProductTable.TITLE)!!,
+        handle = get(ProductTable.HANDLE)!!,
+        productType = get(ProductTable.PRODUCT_TYPE),
+        updatedAt = get(ProductTable.UPDATED_AT)!!
+    )
 
-    private val variantRowMapper: (ResultSet, Int) -> ProductVariant = { rs, _ ->
-        ProductVariant(
-            id = rs.getLong("id"),
-            productId = rs.getLong("product_id"),
-            title = rs.getString("title"),
-            sku = rs.getString("sku"),
-            price = rs.getBigDecimal("price")
-        )
-    }
+    private fun Record.toProductVariant(): ProductVariant = ProductVariant.create(
+        id = get(ProductVariantTable.ID)!!,
+        productId = get(ProductVariantTable.PRODUCT_ID)!!,
+        title = get(ProductVariantTable.TITLE)!!,
+        sku = get(ProductVariantTable.SKU),
+        price = get(ProductVariantTable.PRICE)
+    )
 
     fun findAllProducts(): List<Product> {
-        val products = jdbcClient.sql("SELECT * FROM products ORDER BY updated_at DESC")
-            .query(productRowMapper)
-            .list()
+        val products = dslContext
+            .select(ProductTable.allFields)
+            .from(ProductTable.TABLE)
+            .orderBy(ProductTable.UPDATED_AT.desc())
+            .fetch { it.toProduct() }
 
         if (products.isEmpty()) return products
 
@@ -42,36 +40,34 @@ class ProductRepository(private val jdbcClient: JdbcClient) {
         val variantsByProductId = variants.groupBy { it.productId }
 
         return products.map { product ->
-            product.copy(variants = variantsByProductId[product.id] ?: emptyList())
+            product.withVariants(variantsByProductId[product.id] ?: emptyList())
         }
     }
 
     fun findById(id: Long): Product? {
-        val product = jdbcClient.sql("SELECT * FROM products WHERE id = :id")
-            .param("id", id)
-            .query(productRowMapper)
-            .optional()
-            .orElse(null) ?: return null
+        val product = dslContext
+            .select(ProductTable.allFields)
+            .from(ProductTable.TABLE)
+            .where(ProductTable.ID.eq(id))
+            .fetchOne { it.toProduct() } ?: return null
 
-        val variants = jdbcClient.sql("SELECT * FROM product_variants WHERE product_id = :productId ORDER BY id")
-            .param("productId", id)
-            .query(variantRowMapper)
-            .list()
+        val variants = dslContext
+            .select(ProductVariantTable.allFields)
+            .from(ProductVariantTable.TABLE)
+            .where(ProductVariantTable.PRODUCT_ID.eq(id))
+            .orderBy(ProductVariantTable.ID)
+            .fetch { it.toProductVariant() }
 
-        return product.copy(variants = variants)
+        return product.withVariants(variants)
     }
 
     fun searchByTitle(query: String): List<Product> {
-        val products = jdbcClient.sql(
-            """
-            SELECT * FROM products 
-            WHERE title ILIKE :query 
-            ORDER BY updated_at DESC
-            """.trimIndent()
-        )
-            .param("query", "%$query%")
-            .query(productRowMapper)
-            .list()
+        val products = dslContext
+            .select(ProductTable.allFields)
+            .from(ProductTable.TABLE)
+            .where(ProductTable.TITLE.likeIgnoreCase("%$query%"))
+            .orderBy(ProductTable.UPDATED_AT.desc())
+            .fetch { it.toProduct() }
 
         if (products.isEmpty()) return products
 
@@ -80,7 +76,7 @@ class ProductRepository(private val jdbcClient: JdbcClient) {
         val variantsByProductId = variants.groupBy { it.productId }
 
         return products.map { product ->
-            product.copy(variants = variantsByProductId[product.id] ?: emptyList())
+            product.withVariants(variantsByProductId[product.id] ?: emptyList())
         }
     }
 
@@ -92,20 +88,13 @@ class ProductRepository(private val jdbcClient: JdbcClient) {
         productType: String?,
         updatedAt: OffsetDateTime = OffsetDateTime.now()
     ): Product {
-        jdbcClient.sql(
-            """
-            INSERT INTO products (id, title, handle, product_type, updated_at)
-            VALUES (:id, :title, :handle, :productType, :updatedAt)
-            """.trimIndent()
-        )
-            .param("id", id)
-            .param("title", title)
-            .param("handle", handle)
-            .param("productType", productType)
-            .param("updatedAt", updatedAt)
-            .update()
+        dslContext
+            .insertInto(ProductTable.TABLE)
+            .columns(ProductTable.allFields)
+            .values(id, title, handle, productType, updatedAt)
+            .execute()
 
-        return Product(
+        return Product.create(
             id = id,
             title = title,
             handle = handle,
@@ -116,9 +105,10 @@ class ProductRepository(private val jdbcClient: JdbcClient) {
 
     @Transactional
     fun deleteProduct(id: Long): Boolean {
-        val rowsAffected = jdbcClient.sql("DELETE FROM products WHERE id = :id")
-            .param("id", id)
-            .update()
+        val rowsAffected = dslContext
+            .deleteFrom(ProductTable.TABLE)
+            .where(ProductTable.ID.eq(id))
+            .execute()
         return rowsAffected > 0
     }
 
@@ -127,23 +117,17 @@ class ProductRepository(private val jdbcClient: JdbcClient) {
         if (products.isEmpty()) return
 
         for (product in products) {
-            jdbcClient.sql(
-                """
-                INSERT INTO products (id, title, handle, product_type, updated_at)
-                VALUES (:id, :title, :handle, :productType, :updatedAt)
-                ON CONFLICT (id) DO UPDATE SET
-                    title = EXCLUDED.title,
-                    handle = EXCLUDED.handle,
-                    product_type = EXCLUDED.product_type,
-                    updated_at = EXCLUDED.updated_at
-                """.trimIndent()
-            )
-                .param("id", product.id)
-                .param("title", product.title)
-                .param("handle", product.handle)
-                .param("productType", product.productType)
-                .param("updatedAt", product.updatedAt)
-                .update()
+            dslContext
+                .insertInto(ProductTable.TABLE)
+                .columns(ProductTable.allFields)
+                .values(product.id, product.title, product.handle, product.productType, product.updatedAt)
+                .onConflict(ProductTable.ID)
+                .doUpdate()
+                .set(ProductTable.TITLE, DSL.excluded(ProductTable.TITLE))
+                .set(ProductTable.HANDLE, DSL.excluded(ProductTable.HANDLE))
+                .set(ProductTable.PRODUCT_TYPE, DSL.excluded(ProductTable.PRODUCT_TYPE))
+                .set(ProductTable.UPDATED_AT, DSL.excluded(ProductTable.UPDATED_AT))
+                .execute()
 
             if (product.variants.isNotEmpty()) {
                 replaceVariants(product.id, product.variants)
@@ -153,41 +137,35 @@ class ProductRepository(private val jdbcClient: JdbcClient) {
 
     @Transactional
     fun replaceVariants(productId: Long, variants: List<ProductVariant>) {
-        // Delete existing variants
-        jdbcClient.sql("DELETE FROM product_variants WHERE product_id = :productId")
-            .param("productId", productId)
-            .update()
+        dslContext
+            .deleteFrom(ProductVariantTable.TABLE)
+            .where(ProductVariantTable.PRODUCT_ID.eq(productId))
+            .execute()
 
-        // Insert new variants
         for (variant in variants) {
-            jdbcClient.sql(
-                """
-                INSERT INTO product_variants (id, product_id, title, sku, price)
-                VALUES (:id, :productId, :title, :sku, :price)
-                """.trimIndent()
-            )
-                .param("id", variant.id)
-                .param("productId", productId)
-                .param("title", variant.title)
-                .param("sku", variant.sku)
-                .param("price", variant.price)
-                .update()
+            dslContext
+                .insertInto(ProductVariantTable.TABLE)
+                .columns(ProductVariantTable.allFields)
+                .values(variant.id, productId, variant.title, variant.sku, variant.price)
+                .execute()
         }
+    }
+
+    @Transactional
+    fun deleteAllProducts() {
+        dslContext.deleteFrom(ProductVariantTable.TABLE).execute()
+        dslContext.deleteFrom(ProductTable.TABLE).execute()
     }
 
     private fun findVariantsByProductIds(productIds: List<Long>): List<ProductVariant> {
         if (productIds.isEmpty()) return emptyList()
 
-        return jdbcClient.sql(
-            """
-            SELECT * FROM product_variants 
-            WHERE product_id IN (:productIds) 
-            ORDER BY product_id, id
-            """.trimIndent()
-        )
-            .param("productIds", productIds)
-            .query(variantRowMapper)
-            .list()
+        return dslContext
+            .select(ProductVariantTable.allFields)
+            .from(ProductVariantTable.TABLE)
+            .where(ProductVariantTable.PRODUCT_ID.`in`(productIds))
+            .orderBy(ProductVariantTable.PRODUCT_ID, ProductVariantTable.ID)
+            .fetch { it.toProductVariant() }
     }
 }
 
