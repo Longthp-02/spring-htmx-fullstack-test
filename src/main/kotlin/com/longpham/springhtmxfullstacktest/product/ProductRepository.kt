@@ -8,7 +8,9 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
 
 @Repository
-class ProductRepository(private val dslContext: DSLContext) {
+class ProductRepository(private val dslContext: DSLContext) : ProductPersistence {
+
+    data class UpsertResult(val inserted: Int, val updated: Int)
 
     private fun Record.toProduct(): Product = Product.create(
         id = get(ProductTable.ID)!!,
@@ -113,10 +115,23 @@ class ProductRepository(private val dslContext: DSLContext) {
     }
 
     @Transactional
-    fun upsertProductsFromExternal(products: List<Product>) {
-        if (products.isEmpty()) return
+    override
+    fun upsertProductsFromExternal(products: List<Product>): UpsertResult {
+        if (products.isEmpty()) return UpsertResult(inserted = 0, updated = 0)
 
-        for (product in products) {
+        val uniqueProducts = products.distinctBy { it.id }
+        val externalIds = uniqueProducts.map { it.id }
+        val existingIds = dslContext
+            .select(ProductTable.ID)
+            .from(ProductTable.TABLE)
+            .where(ProductTable.ID.`in`(externalIds))
+            .fetch(ProductTable.ID)
+            .toSet()
+
+        val inserted = externalIds.count { it !in existingIds }
+        val updated = externalIds.size - inserted
+
+        for (product in uniqueProducts) {
             dslContext
                 .insertInto(ProductTable.TABLE)
                 .columns(ProductTable.allFields)
@@ -129,10 +144,10 @@ class ProductRepository(private val dslContext: DSLContext) {
                 .set(ProductTable.UPDATED_AT, DSL.excluded(ProductTable.UPDATED_AT))
                 .execute()
 
-            if (product.variants.isNotEmpty()) {
-                replaceVariants(product.id, product.variants)
-            }
+            replaceVariants(product.id, product.variants)
         }
+
+        return UpsertResult(inserted = inserted, updated = updated)
     }
 
     @Transactional
