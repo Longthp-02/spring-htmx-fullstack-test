@@ -71,6 +71,7 @@ class ProductRepository(private val jdbcClient: JdbcClient) : ProductPersistence
                 from products
                 where title ilike :query
                 order by updated_at desc
+                limit 50
                 """.trimIndent()
             )
             .param("query", "%$query%")
@@ -159,6 +160,35 @@ class ProductRepository(private val jdbcClient: JdbcClient) : ProductPersistence
         val rows = jdbcClient
             .sql("delete from products where id = :id")
             .param("id", id)
+            .update()
+
+        return rows > 0
+    }
+
+    @Transactional
+    fun updateProduct(
+        id: Long,
+        title: String,
+        handle: String,
+        productType: String?,
+        updatedAt: OffsetDateTime
+    ): Boolean {
+        val rows = jdbcClient
+            .sql(
+                """
+                update products
+                set title = :title,
+                    handle = :handle,
+                    product_type = :productType,
+                    updated_at = :updatedAt
+                where id = :id
+                """.trimIndent()
+            )
+            .param("id", id)
+            .param("title", title)
+            .param("handle", handle)
+            .param("productType", productType)
+            .param("updatedAt", updatedAt)
             .update()
 
         return rows > 0

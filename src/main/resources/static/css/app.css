@@ -37,7 +37,21 @@ body {
 
 .actions-row {
     display: flex;
+    gap: var(--wa-space-s);
+    align-items: center;
     justify-content: flex-start;
+}
+
+.page-link {
+    color: var(--wa-color-brand-text-loud);
+    text-decoration: none;
+    border-bottom: 1px solid color-mix(in oklab, var(--wa-color-brand-border-loud) 45%, transparent);
+    padding-bottom: 0.1rem;
+}
+
+.page-link:hover {
+    color: var(--wa-color-brand-text-louder);
+    border-bottom-color: var(--wa-color-brand-border-loud);
 }
 
 .form-panel,
@@ -75,6 +89,29 @@ body {
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+.search-label {
+    display: block;
+    margin-bottom: var(--wa-space-xs);
+    color: var(--wa-color-text-quiet);
+    font-size: 0.95rem;
+}
+
+.search-input {
+    width: 100%;
+    border: 1px solid var(--wa-color-surface-border);
+    background: var(--wa-color-surface-default);
+    color: var(--wa-color-text-normal);
+    border-radius: 0.7rem;
+    padding: var(--wa-space-s) var(--wa-space-m);
+    font: inherit;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--wa-color-brand-border-loud);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--wa-color-brand-fill-loud) 22%, transparent);
+}
+
 .add-product-form input:focus {
     outline: none;
     border-color: var(--wa-color-brand-border-loud);
@@ -106,6 +143,16 @@ body {
     font-weight: 600;
 }
 
+.row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wa-space-2xs);
+}
+
+.row-actions wa-button {
+    cursor: pointer;
+}
+
 .empty-row {
     text-align: center;
     color: var(--wa-color-text-quiet);
@@ -118,6 +165,34 @@ body {
     border-radius: 0.75rem;
     padding: var(--wa-space-l);
     background: color-mix(in oklab, var(--wa-color-surface-default) 90%, white 10%);
+}
+
+.confirm-dialog {
+    border: 1px solid var(--wa-color-surface-border);
+    border-radius: 0.9rem;
+    padding: var(--wa-space-l);
+    background: var(--wa-color-surface-raised);
+    color: var(--wa-color-text-normal);
+    width: min(28rem, 92vw);
+}
+
+.confirm-dialog::backdrop {
+    background: color-mix(in oklab, black 50%, transparent);
+}
+
+.confirm-dialog h3 {
+    margin: 0 0 var(--wa-space-xs) 0;
+}
+
+.confirm-dialog p {
+    margin: 0 0 var(--wa-space-m) 0;
+    color: var(--wa-color-text-quiet);
+}
+
+.confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--wa-space-s);
 }
 
 wa-button:not(:defined),

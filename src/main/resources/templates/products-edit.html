@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" class="wa-theme-default wa-palette-default wa-brand-blue" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Product</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.2.1/dist/styles/webawesome.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.2.1/dist/styles/themes/default.css">
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.2.1/dist/webawesome.loader.js"></script>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<main class="page-shell">
+    <header class="page-header">
+        <h1>Update Product</h1>
+        <p th:text="'Editing product #' + ${product.id}">Editing product</p>
+    </header>
+
+    <section class="actions-row" aria-label="Navigation">
+        <a class="page-link" href="/">Back to products page</a>
+    </section>
+
+    <section class="form-panel" aria-label="Update product form">
+        <form class="add-product-form" th:action="@{/products/{id}/edit(id=${product.id})}" method="post">
+            <label>
+                Title
+                <input type="text" name="title" required th:value="${product.title}">
+            </label>
+            <label>
+                Handle
+                <input type="text" name="handle" required th:value="${product.handle}">
+            </label>
+            <label>
+                Product Type
+                <input type="text" name="productType" th:value="${product.productType}">
+            </label>
+            <wa-button type="submit" variant="brand" appearance="accent">Save changes</wa-button>
+        </form>
+    </section>
+</main>
+</body>
+</html>
