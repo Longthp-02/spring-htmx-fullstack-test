@@ -84,11 +84,35 @@ class ProductRepository(private val dslContext: DSLContext) : ProductPersistence
 
     @Transactional
     fun insertManualProduct(
+        title: String,
+        handle: String,
+        productType: String?,
+        updatedAt: OffsetDateTime
+    ): Product {
+        val generatedId = dslContext
+            .insertInto(ProductTable.TABLE)
+            .columns(ProductTable.TITLE, ProductTable.HANDLE, ProductTable.PRODUCT_TYPE, ProductTable.UPDATED_AT)
+            .values(title, handle, productType, updatedAt)
+            .returning(ProductTable.ID)
+            .fetchOne(ProductTable.ID)
+            ?: error("Could not generate product id")
+
+        return Product.create(
+            id = generatedId,
+            title = title,
+            handle = handle,
+            productType = productType,
+            updatedAt = updatedAt
+        )
+    }
+
+    @Transactional
+    fun insertManualProduct(
         id: Long,
         title: String,
         handle: String,
         productType: String?,
-        updatedAt: OffsetDateTime = OffsetDateTime.now()
+        updatedAt: OffsetDateTime
     ): Product {
         dslContext
             .insertInto(ProductTable.TABLE)
@@ -147,6 +171,8 @@ class ProductRepository(private val dslContext: DSLContext) : ProductPersistence
             replaceVariants(product.id, product.variants)
         }
 
+        alignManualIdSequenceToExternalRange()
+
         return UpsertResult(inserted = inserted, updated = updated)
     }
 
@@ -182,5 +208,22 @@ class ProductRepository(private val dslContext: DSLContext) : ProductPersistence
             .orderBy(ProductVariantTable.PRODUCT_ID, ProductVariantTable.ID)
             .fetch { it.toProductVariant() }
     }
-}
 
+    private fun alignManualIdSequenceToExternalRange() {
+        val maxExternalLikeId = dslContext
+            .select(DSL.max(ProductTable.ID))
+            .from(ProductTable.TABLE)
+            .where(ProductTable.ID.le(EXTERNAL_ID_UPPER_BOUND))
+            .fetchOne(0, Long::class.java)
+            ?: return
+
+        dslContext.execute(
+            "select setval('products_manual_id_seq', ?, true)",
+            maxExternalLikeId
+        )
+    }
+
+    companion object {
+        private const val EXTERNAL_ID_UPPER_BOUND = 99_999_999_999_999L
+    }
+}

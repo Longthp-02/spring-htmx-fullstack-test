@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<section th:fragment="productsTable">
+    <div class="table-header">
+        <h2>Product Table</h2>
+        <wa-tag variant="neutral" appearance="filled-outlined" size="small"
+                th:text="${#lists.size(products)} + ' items'">0 items</wa-tag>
+    </div>
+
+    <table class="products-table">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Handle</th>
+            <th>Type</th>
+            <th>Variants</th>
+            <th>Updated</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:if="${#lists.isEmpty(products)}">
+            <td colspan="6" class="empty-row">No products available.</td>
+        </tr>
+        <tr th:each="product : ${products}">
+            <td th:text="${product.id}">0</td>
+            <td th:text="${product.title}">Product</td>
+            <td th:text="${product.handle}">product-handle</td>
+            <td th:text="${product.productType ?: '-'}">-</td>
+            <td th:text="${#lists.size(product.variants)}">0</td>
+            <td th:text="${#temporals.format(product.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-02-13 10:00</td>
+        </tr>
+        </tbody>
+    </table>
+</section>
+</body>
+</html>

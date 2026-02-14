@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" class="wa-theme-default wa-palette-default wa-brand-blue" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.2.1/dist/styles/webawesome.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.2.1/dist/styles/themes/default.css">
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.2.1/dist/webawesome.loader.js"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<main class="page-shell">
+    <header class="page-header">
+        <h1>Products</h1>
+    </header>
+
+    <section class="actions-row" aria-label="Load products">
+        <button type="button"
+                class="ui-btn ui-btn-primary"
+                hx-get="/products/table"
+                hx-target="#products-table-container"
+                hx-swap="innerHTML">
+            Load products
+        </button>
+    </section>
+
+    <section class="form-panel" aria-label="Add product">
+        <h2>Add Product</h2>
+        <form class="add-product-form"
+              hx-post="/products"
+              hx-target="#products-table-container"
+              hx-swap="innerHTML">
+            <label>
+                Title
+                <input type="text" name="title" required placeholder="Core Tights">
+            </label>
+            <label>
+                Handle
+                <input type="text" name="handle" placeholder="core-tights">
+            </label>
+            <label>
+                Product Type
+                <input type="text" name="productType" placeholder="Leggings">
+            </label>
+            <button type="submit" class="ui-btn ui-btn-success">Add product</button>
+        </form>
+    </section>
+
+    <section id="products-table-container"
+             class="table-panel">
+        <div class="table-placeholder">
+            Click <strong>Load products</strong> to fetch products from the database.
+        </div>
+    </section>
+</main>
+</body>
+</html>
