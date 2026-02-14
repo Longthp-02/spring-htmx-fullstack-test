@@ -64,7 +64,7 @@ class ProductBootstrapClientIntegrationTest {
 
             val request = server.takeRequest()
             assertEquals("GET", request.method)
-            assertEquals("/products.json", request.path)
+            assertEquals("/products.json?limit=250", request.path)
         }
     }
 

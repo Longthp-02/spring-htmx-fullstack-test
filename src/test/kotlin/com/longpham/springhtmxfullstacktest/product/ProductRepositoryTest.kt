@@ -215,6 +215,40 @@ class ProductRepositoryTest {
     }
 
     @Test
+    fun `manual insert after external upsert uses external id size range`() {
+        val now = OffsetDateTime.now()
+
+        productRepository.insertManualProduct(
+            id = 3_183_480_321_147_622_338L,
+            title = "Legacy Outlier",
+            handle = "legacy-outlier",
+            productType = null,
+            updatedAt = now
+        )
+
+        productRepository.upsertProductsFromExternal(
+            listOf(
+                Product.create(
+                    id = 8_568_688_738_652L,
+                    title = "Imported Product",
+                    handle = "imported-product",
+                    productType = "Type",
+                    updatedAt = now
+                )
+            )
+        )
+
+        val manual = productRepository.insertManualProduct(
+            title = "Manual Product",
+            handle = "manual-product",
+            productType = null,
+            updatedAt = now.plusMinutes(1)
+        )
+
+        assertEquals(8_568_688_738_653L, manual.id)
+    }
+
+    @Test
     fun `replaceVariants deletes existing variants and inserts new ones`() {
         val now = OffsetDateTime.now()
         productRepository.insertManualProduct(1L, "Test Product", "test-product", null, now)
@@ -272,4 +306,3 @@ class ProductRepositoryTest {
         assertNull(product.variants[0].price)
     }
 }
-
