@@ -1,84 +1,94 @@
 package com.longpham.springhtmxfullstacktest.product
 
-import org.jooq.DSLContext
-import org.jooq.Record
-import org.jooq.impl.DSL
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
 
 @Repository
-class ProductRepository(private val dslContext: DSLContext) : ProductPersistence {
+class ProductRepository(private val jdbcClient: JdbcClient) : ProductPersistence {
 
     data class UpsertResult(val inserted: Int, val updated: Int)
 
-    private fun Record.toProduct(): Product = Product.create(
-        id = get(ProductTable.ID)!!,
-        title = get(ProductTable.TITLE)!!,
-        handle = get(ProductTable.HANDLE)!!,
-        productType = get(ProductTable.PRODUCT_TYPE),
-        updatedAt = get(ProductTable.UPDATED_AT)!!
-    )
-
-    private fun Record.toProductVariant(): ProductVariant = ProductVariant.create(
-        id = get(ProductVariantTable.ID)!!,
-        productId = get(ProductVariantTable.PRODUCT_ID)!!,
-        title = get(ProductVariantTable.TITLE)!!,
-        sku = get(ProductVariantTable.SKU),
-        price = get(ProductVariantTable.PRICE)
-    )
-
     fun findAllProducts(): List<Product> {
-        val products = dslContext
-            .select(ProductTable.allFields)
-            .from(ProductTable.TABLE)
-            .orderBy(ProductTable.UPDATED_AT.desc())
-            .fetch { it.toProduct() }
+        val products = jdbcClient
+            .sql(
+                """
+                select id, title, handle, product_type, updated_at
+                from products
+                order by updated_at desc
+                """.trimIndent()
+            )
+            .query { rs, _ ->
+                Product.create(
+                    id = rs.getLong("id"),
+                    title = rs.getString("title"),
+                    handle = rs.getString("handle"),
+                    productType = rs.getString("product_type"),
+                    updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java)
+                )
+            }
+            .list()
 
         if (products.isEmpty()) return products
 
-        val productIds = products.map { it.id }
-        val variants = findVariantsByProductIds(productIds)
-        val variantsByProductId = variants.groupBy { it.productId }
-
         return products.map { product ->
-            product.withVariants(variantsByProductId[product.id] ?: emptyList())
+            product.withVariants(findVariantsByProductId(product.id))
         }
     }
 
     fun findById(id: Long): Product? {
-        val product = dslContext
-            .select(ProductTable.allFields)
-            .from(ProductTable.TABLE)
-            .where(ProductTable.ID.eq(id))
-            .fetchOne { it.toProduct() } ?: return null
+        val product = jdbcClient
+            .sql(
+                """
+                select id, title, handle, product_type, updated_at
+                from products
+                where id = :id
+                """.trimIndent()
+            )
+            .param("id", id)
+            .query { rs, _ ->
+                Product.create(
+                    id = rs.getLong("id"),
+                    title = rs.getString("title"),
+                    handle = rs.getString("handle"),
+                    productType = rs.getString("product_type"),
+                    updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java)
+                )
+            }
+            .optional()
+            .orElse(null)
+            ?: return null
 
-        val variants = dslContext
-            .select(ProductVariantTable.allFields)
-            .from(ProductVariantTable.TABLE)
-            .where(ProductVariantTable.PRODUCT_ID.eq(id))
-            .orderBy(ProductVariantTable.ID)
-            .fetch { it.toProductVariant() }
-
-        return product.withVariants(variants)
+        return product.withVariants(findVariantsByProductId(id))
     }
 
     fun searchByTitle(query: String): List<Product> {
-        val products = dslContext
-            .select(ProductTable.allFields)
-            .from(ProductTable.TABLE)
-            .where(ProductTable.TITLE.likeIgnoreCase("%$query%"))
-            .orderBy(ProductTable.UPDATED_AT.desc())
-            .fetch { it.toProduct() }
+        val products = jdbcClient
+            .sql(
+                """
+                select id, title, handle, product_type, updated_at
+                from products
+                where title ilike :query
+                order by updated_at desc
+                """.trimIndent()
+            )
+            .param("query", "%$query%")
+            .query { rs, _ ->
+                Product.create(
+                    id = rs.getLong("id"),
+                    title = rs.getString("title"),
+                    handle = rs.getString("handle"),
+                    productType = rs.getString("product_type"),
+                    updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java)
+                )
+            }
+            .list()
 
         if (products.isEmpty()) return products
 
-        val productIds = products.map { it.id }
-        val variants = findVariantsByProductIds(productIds)
-        val variantsByProductId = variants.groupBy { it.productId }
-
         return products.map { product ->
-            product.withVariants(variantsByProductId[product.id] ?: emptyList())
+            product.withVariants(findVariantsByProductId(product.id))
         }
     }
 
@@ -89,13 +99,20 @@ class ProductRepository(private val dslContext: DSLContext) : ProductPersistence
         productType: String?,
         updatedAt: OffsetDateTime
     ): Product {
-        val generatedId = dslContext
-            .insertInto(ProductTable.TABLE)
-            .columns(ProductTable.TITLE, ProductTable.HANDLE, ProductTable.PRODUCT_TYPE, ProductTable.UPDATED_AT)
-            .values(title, handle, productType, updatedAt)
-            .returning(ProductTable.ID)
-            .fetchOne(ProductTable.ID)
-            ?: error("Could not generate product id")
+        val generatedId = jdbcClient
+            .sql(
+                """
+                insert into products (title, handle, product_type, updated_at)
+                values (:title, :handle, :productType, :updatedAt)
+                returning id
+                """.trimIndent()
+            )
+            .param("title", title)
+            .param("handle", handle)
+            .param("productType", productType)
+            .param("updatedAt", updatedAt)
+            .query(Long::class.java)
+            .single()
 
         return Product.create(
             id = generatedId,
@@ -114,11 +131,19 @@ class ProductRepository(private val dslContext: DSLContext) : ProductPersistence
         productType: String?,
         updatedAt: OffsetDateTime
     ): Product {
-        dslContext
-            .insertInto(ProductTable.TABLE)
-            .columns(ProductTable.allFields)
-            .values(id, title, handle, productType, updatedAt)
-            .execute()
+        jdbcClient
+            .sql(
+                """
+                insert into products (id, title, handle, product_type, updated_at)
+                values (:id, :title, :handle, :productType, :updatedAt)
+                """.trimIndent()
+            )
+            .param("id", id)
+            .param("title", title)
+            .param("handle", handle)
+            .param("productType", productType)
+            .param("updatedAt", updatedAt)
+            .update()
 
         return Product.create(
             id = id,
@@ -131,42 +156,50 @@ class ProductRepository(private val dslContext: DSLContext) : ProductPersistence
 
     @Transactional
     fun deleteProduct(id: Long): Boolean {
-        val rowsAffected = dslContext
-            .deleteFrom(ProductTable.TABLE)
-            .where(ProductTable.ID.eq(id))
-            .execute()
-        return rowsAffected > 0
+        val rows = jdbcClient
+            .sql("delete from products where id = :id")
+            .param("id", id)
+            .update()
+
+        return rows > 0
     }
 
     @Transactional
-    override
-    fun upsertProductsFromExternal(products: List<Product>): UpsertResult {
+    override fun upsertProductsFromExternal(products: List<Product>): UpsertResult {
         if (products.isEmpty()) return UpsertResult(inserted = 0, updated = 0)
 
         val uniqueProducts = products.distinctBy { it.id }
-        val externalIds = uniqueProducts.map { it.id }
-        val existingIds = dslContext
-            .select(ProductTable.ID)
-            .from(ProductTable.TABLE)
-            .where(ProductTable.ID.`in`(externalIds))
-            .fetch(ProductTable.ID)
-            .toSet()
-
-        val inserted = externalIds.count { it !in existingIds }
-        val updated = externalIds.size - inserted
+        var inserted = 0
+        var updated = 0
 
         for (product in uniqueProducts) {
-            dslContext
-                .insertInto(ProductTable.TABLE)
-                .columns(ProductTable.allFields)
-                .values(product.id, product.title, product.handle, product.productType, product.updatedAt)
-                .onConflict(ProductTable.ID)
-                .doUpdate()
-                .set(ProductTable.TITLE, DSL.excluded(ProductTable.TITLE))
-                .set(ProductTable.HANDLE, DSL.excluded(ProductTable.HANDLE))
-                .set(ProductTable.PRODUCT_TYPE, DSL.excluded(ProductTable.PRODUCT_TYPE))
-                .set(ProductTable.UPDATED_AT, DSL.excluded(ProductTable.UPDATED_AT))
-                .execute()
+            val exists = jdbcClient
+                .sql("select exists(select 1 from products where id = :id)")
+                .param("id", product.id)
+                .query(Boolean::class.java)
+                .single()
+
+            if (exists) updated++ else inserted++
+
+            jdbcClient
+                .sql(
+                    """
+                    insert into products (id, title, handle, product_type, updated_at)
+                    values (:id, :title, :handle, :productType, :updatedAt)
+                    on conflict (id)
+                    do update set
+                        title = excluded.title,
+                        handle = excluded.handle,
+                        product_type = excluded.product_type,
+                        updated_at = excluded.updated_at
+                    """.trimIndent()
+                )
+                .param("id", product.id)
+                .param("title", product.title)
+                .param("handle", product.handle)
+                .param("productType", product.productType)
+                .param("updatedAt", product.updatedAt)
+                .update()
 
             replaceVariants(product.id, product.variants)
         }
@@ -178,49 +211,75 @@ class ProductRepository(private val dslContext: DSLContext) : ProductPersistence
 
     @Transactional
     fun replaceVariants(productId: Long, variants: List<ProductVariant>) {
-        dslContext
-            .deleteFrom(ProductVariantTable.TABLE)
-            .where(ProductVariantTable.PRODUCT_ID.eq(productId))
-            .execute()
+        jdbcClient
+            .sql("delete from product_variants where product_id = :productId")
+            .param("productId", productId)
+            .update()
 
         for (variant in variants) {
-            dslContext
-                .insertInto(ProductVariantTable.TABLE)
-                .columns(ProductVariantTable.allFields)
-                .values(variant.id, productId, variant.title, variant.sku, variant.price)
-                .execute()
+            jdbcClient
+                .sql(
+                    """
+                    insert into product_variants (id, product_id, title, sku, price)
+                    values (:id, :productId, :title, :sku, :price)
+                    """.trimIndent()
+                )
+                .param("id", variant.id)
+                .param("productId", productId)
+                .param("title", variant.title)
+                .param("sku", variant.sku)
+                .param("price", variant.price)
+                .update()
         }
     }
 
     @Transactional
     fun deleteAllProducts() {
-        dslContext.deleteFrom(ProductVariantTable.TABLE).execute()
-        dslContext.deleteFrom(ProductTable.TABLE).execute()
+        jdbcClient.sql("delete from product_variants").update()
+        jdbcClient.sql("delete from products").update()
     }
 
-    private fun findVariantsByProductIds(productIds: List<Long>): List<ProductVariant> {
-        if (productIds.isEmpty()) return emptyList()
-
-        return dslContext
-            .select(ProductVariantTable.allFields)
-            .from(ProductVariantTable.TABLE)
-            .where(ProductVariantTable.PRODUCT_ID.`in`(productIds))
-            .orderBy(ProductVariantTable.PRODUCT_ID, ProductVariantTable.ID)
-            .fetch { it.toProductVariant() }
-    }
+    private fun findVariantsByProductId(productId: Long): List<ProductVariant> = jdbcClient
+        .sql(
+            """
+            select id, product_id, title, sku, price
+            from product_variants
+            where product_id = :productId
+            order by id
+            """.trimIndent()
+        )
+        .param("productId", productId)
+        .query { rs, _ ->
+            ProductVariant.create(
+                id = rs.getLong("id"),
+                productId = rs.getLong("product_id"),
+                title = rs.getString("title"),
+                sku = rs.getString("sku"),
+                price = rs.getBigDecimal("price")
+            )
+        }
+        .list()
 
     private fun alignManualIdSequenceToExternalRange() {
-        val maxExternalLikeId = dslContext
-            .select(DSL.max(ProductTable.ID))
-            .from(ProductTable.TABLE)
-            .where(ProductTable.ID.le(EXTERNAL_ID_UPPER_BOUND))
-            .fetchOne(0, Long::class.java)
+        val maxExternalLikeId = jdbcClient
+            .sql(
+                """
+                select max(id)
+                from products
+                where id <= :upperBound
+                """.trimIndent()
+            )
+            .param("upperBound", EXTERNAL_ID_UPPER_BOUND)
+            .query(Long::class.java)
+            .optional()
+            .orElse(null)
             ?: return
 
-        dslContext.execute(
-            "select setval('products_manual_id_seq', ?, true)",
-            maxExternalLikeId
-        )
+        jdbcClient
+            .sql("select setval('products_manual_id_seq', :maxId, true)")
+            .param("maxId", maxExternalLikeId)
+            .query(Long::class.java)
+            .single()
     }
 
     companion object {

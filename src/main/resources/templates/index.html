@@ -17,13 +17,13 @@
     </header>
 
     <section class="actions-row" aria-label="Load products">
-        <button type="button"
-                class="ui-btn ui-btn-primary"
-                hx-get="/products/table"
-                hx-target="#products-table-container"
-                hx-swap="innerHTML">
+        <wa-button variant="brand"
+                   appearance="accent"
+                   hx-get="/products/table"
+                   hx-target="#products-table-container"
+                   hx-swap="innerHTML">
             Load products
-        </button>
+        </wa-button>
     </section>
 
     <section class="form-panel" aria-label="Add product">
@@ -44,7 +44,7 @@
                 Product Type
                 <input type="text" name="productType" placeholder="Leggings">
             </label>
-            <button type="submit" class="ui-btn ui-btn-success">Add product</button>
+            <wa-button type="submit" variant="success" appearance="accent">Add product</wa-button>
         </form>
     </section>
 
