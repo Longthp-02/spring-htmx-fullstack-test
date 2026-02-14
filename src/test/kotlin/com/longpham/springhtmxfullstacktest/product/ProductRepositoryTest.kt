@@ -164,6 +164,24 @@ class ProductRepositoryTest {
     }
 
     @Test
+    fun `searchByTitle limits result size to 50`() {
+        val now = OffsetDateTime.now()
+        for (id in 1L..60L) {
+            productRepository.insertManualProduct(
+                id = id,
+                title = "Limit Test Product $id",
+                handle = "limit-test-product-$id",
+                productType = "Type",
+                updatedAt = now.plusSeconds(id)
+            )
+        }
+
+        val results = productRepository.searchByTitle("Limit Test Product")
+
+        assertEquals(50, results.size)
+    }
+
+    @Test
     fun `upsertProductsFromExternal inserts new products`() {
         val now = OffsetDateTime.now()
         val products = listOf(

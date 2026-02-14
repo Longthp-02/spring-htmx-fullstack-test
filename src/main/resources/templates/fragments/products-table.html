@@ -17,11 +17,12 @@
             <th>Type</th>
             <th>Variants</th>
             <th>Updated</th>
+            <th>Action</th>
         </tr>
         </thead>
         <tbody>
         <tr th:if="${#lists.isEmpty(products)}">
-            <td colspan="6" class="empty-row">No products available.</td>
+            <td colspan="7" class="empty-row">No products available.</td>
         </tr>
         <tr th:each="product : ${products}">
             <td th:text="${product.id}">0</td>
@@ -30,6 +31,24 @@
             <td th:text="${product.productType ?: '-'}">-</td>
             <td th:text="${#lists.size(product.variants)}">0</td>
             <td th:text="${#temporals.format(product.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-02-13 10:00</td>
+            <td>
+                <div class="row-actions">
+                <wa-button variant="neutral"
+                           appearance="outlined"
+                           size="small"
+                           th:attr="data-edit-url=@{/products/{id}/edit(id=${product.id})}"
+                           onclick="window.location.href=this.getAttribute('data-edit-url')">
+                    Update
+                </wa-button>
+                <wa-button variant="danger"
+                           appearance="outlined"
+                           size="small"
+                           th:attr="data-product-id=${product.id}"
+                           onclick="openDeleteDialog(this)">
+                    Delete
+                </wa-button>
+                </div>
+            </td>
         </tr>
         </tbody>
     </table>

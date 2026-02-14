@@ -14,16 +14,36 @@
 <main class="page-shell">
     <header class="page-header">
         <h1>Products</h1>
+        <p>Load products and manage product details.</p>
     </header>
 
-    <section class="actions-row" aria-label="Load products">
+    <section class="actions-row" aria-label="Product actions">
         <wa-button variant="brand"
                    appearance="accent"
                    hx-get="/products/table"
+                   hx-include="#product-search-input"
                    hx-target="#products-table-container"
                    hx-swap="innerHTML">
             Load products
         </wa-button>
+        <wa-button variant="neutral"
+                   appearance="outlined"
+                   onclick="exportProductsCsv()">
+            Export CSV
+        </wa-button>
+    </section>
+
+    <section class="form-panel" aria-label="Search products">
+        <label class="search-label" for="product-search-input">Search title</label>
+        <input id="product-search-input"
+               class="search-input"
+               type="search"
+               name="q"
+               placeholder="Start typing product title..."
+               hx-get="/products/table"
+               hx-trigger="keyup changed delay:300ms"
+               hx-target="#products-table-container"
+               hx-swap="innerHTML">
     </section>
 
     <section class="form-panel" aria-label="Add product">
@@ -48,12 +68,64 @@
         </form>
     </section>
 
-    <section id="products-table-container"
-             class="table-panel">
+    <section id="products-table-container" class="table-panel">
         <div class="table-placeholder">
             Click <strong>Load products</strong> to fetch products from the database.
         </div>
     </section>
 </main>
+
+<dialog id="delete-product-dialog" class="confirm-dialog">
+    <h3>Delete Product</h3>
+    <p>This action cannot be undone. Continue?</p>
+    <div class="confirm-actions">
+        <wa-button variant="neutral" appearance="outlined" onclick="closeDeleteDialog()">Cancel</wa-button>
+        <wa-button variant="danger" appearance="accent" onclick="confirmDeleteProduct()">Delete</wa-button>
+    </div>
+</dialog>
+
+<script>
+    window.__deleteState = { productId: null, targetSelector: null };
+
+    function openDeleteDialog(button) {
+        const productId = button.getAttribute('data-product-id');
+        const targetSection = button.closest('section[id]');
+        window.__deleteState.productId = productId;
+        window.__deleteState.targetSelector = targetSection ? '#' + targetSection.id : '#products-table-container';
+        document.getElementById('delete-product-dialog').showModal();
+    }
+
+    function closeDeleteDialog() {
+        document.getElementById('delete-product-dialog').close();
+    }
+
+    function confirmDeleteProduct() {
+        const dialog = document.getElementById('delete-product-dialog');
+        const state = window.__deleteState;
+        if (!state.productId) {
+            dialog.close();
+            return;
+        }
+
+        const searchInput = document.getElementById('product-search-input');
+        const query = searchInput ? searchInput.value.trim() : '';
+        const queryPart = query ? ('?q=' + encodeURIComponent(query)) : '';
+
+        htmx.ajax('DELETE', '/products/' + state.productId + queryPart, {
+            target: state.targetSelector || '#products-table-container',
+            swap: 'innerHTML'
+        });
+
+        dialog.close();
+        state.productId = null;
+    }
+
+    function exportProductsCsv() {
+        const searchInput = document.getElementById('product-search-input');
+        const query = searchInput ? searchInput.value.trim() : '';
+        const queryPart = query ? ('?q=' + encodeURIComponent(query)) : '';
+        window.location.href = '/products/export.csv' + queryPart;
+    }
+</script>
 </body>
 </html>
