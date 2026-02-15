@@ -21,7 +21,7 @@
     </section>
 
     <section class="form-panel" aria-label="Update product form">
-        <form class="add-product-form" th:action="@{/products/{id}/edit(id=${product.id})}" method="post">
+        <form id="edit-product-form" class="add-product-form" th:action="@{/products/{id}/edit(id=${product.id})}" method="post">
             <label>
                 Title
                 <input type="text" name="title" required th:value="${product.title}">
@@ -34,9 +34,22 @@
                 Product Type
                 <input type="text" name="productType" th:value="${product.productType}">
             </label>
-            <wa-button type="submit" variant="brand" appearance="accent">Save changes</wa-button>
+            <wa-button type="button"
+                       variant="brand"
+                       appearance="accent"
+                       onclick="submitEditProductForm()">
+                Save changes
+            </wa-button>
         </form>
     </section>
 </main>
+<script>
+    function submitEditProductForm() {
+        const form = document.getElementById('edit-product-form');
+        if (form) {
+            form.requestSubmit();
+        }
+    }
+</script>
 </body>
 </html>

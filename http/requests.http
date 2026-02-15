@@ -1,3 +1,21 @@
 ### Root endpoint
 GET http://localhost:8080/
 Accept: text/html
+
+### Load products table fragment (same endpoint used by "Load products" button)
+GET http://localhost:8080/products/table
+Accept: text/html
+HX-Request: true
+
+### Load products table fragment with search query
+GET http://localhost:8080/products/table?q=leggings
+Accept: text/html
+HX-Request: true
+
+### Add product (form-url-encoded, same as HTMX form submit)
+POST http://localhost:8080/products
+Accept: text/html
+Content-Type: application/x-www-form-urlencoded
+HX-Request: true
+
+title=Manual Demo Product&handle=manual-demo-product&productType=Top

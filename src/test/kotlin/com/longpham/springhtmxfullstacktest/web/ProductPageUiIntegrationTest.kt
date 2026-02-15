@@ -122,6 +122,18 @@ class ProductPageUiIntegrationTest {
     }
 
     @Test
+    fun `POST edit product updates and redirects back to main page`() {
+        mockMvc.perform(
+            post("/products/11/edit")
+                .param("title", "Updated Product")
+                .param("handle", "updated-product")
+                .param("productType", "Type")
+        )
+            .andExpect(status().is3xxRedirection)
+            .andExpect(header().string("Location", "/"))
+    }
+
+    @Test
     fun `GET products export returns downloadable csv for filtered query`() {
         val product = Product.create(
             id = 9L,

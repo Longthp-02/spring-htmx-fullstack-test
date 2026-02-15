@@ -102,7 +102,7 @@ class ProductPageController(
             productType = productType?.trim()?.ifBlank { null },
             updatedAt = OffsetDateTime.now()
         )
-        return "redirect:/products/$id/edit"
+        return "redirect:/"
     }
 
     private fun loadProducts(query: String?): List<Product> {
